@@ -1,0 +1,73 @@
+# Neo4j Database Files
+.neo4j/
+*.db
+data/databases/
+data/dbms/
+data/transactions/
+
+# Neo4j Logs
+logs/
+*.log
+
+# OS Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Node modules (if extending with Node.js)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.backup
+
+# Archives
+*.zip
+*.tar.gz
+*.rar
+
+# Large files 
+*.large
+
+# Credentials 
+credentials.txt
+passwords.txt
+secrets.json
+config.private.json
+
+# Neo4j specific
+import/
+plugins/
+certificates/
+
+# Documentation build files
+docs/_build/
+site/
