@@ -1,0 +1,467 @@
+// SAMPLE QUERIES WITH EXPECTED RESULTS
+
+// This file contains example queries and their typical outputs
+
+// 1. BASIC NETWORK STATISTICS
+
+// Query: Count total people
+
+MATCH (p:Person) 
+RETURN count(p) as total_people;
+
+// Expected Output:
+// total_people
+// 50
+
+// --------------------------------------------
+
+// Query: Count relationships by type
+
+MATCH ()-[r:FRIEND_OF]->() 
+WITH count(r)/2 as friendships
+MATCH ()-[f:FOLLOWS]->()
+RETURN friendships, count(f) as follows;
+
+// Expected Output:
+// friendships | follows
+// 75          | 270
+
+// --------------------------------------------
+
+// Query: People per city
+
+MATCH (p:Person)
+RETURN p.city as city, count(p) as population
+ORDER BY population DESC;
+
+// Expected Output:
+// city          | population
+// Alger         | 13
+// Oran          | 6
+// Constantine   | 5
+// Tiaret        | 5
+// Annaba        | 4
+// Sétif         | 4
+// Tlemcen       | 4
+// Ouargla       | 3
+// Béchar        | 3
+// Adrar         | 3
+
+
+// 2. PERSONAL NETWORK FOR (RAHIL)
+
+// Query: RAHIL's friends
+
+MATCH (rahil:Person {name: 'Rahil Madoune'})-[:FRIEND_OF]-(friend)
+RETURN friend.name as friend_name, friend.city, friend.profession
+ORDER BY friend.name;
+
+// Expected Output (sample):
+// friend_name        | city      | profession
+// Amina Belkacem    | Alger     | Data Scientist
+// Karim Boudiaf     | Alger     | Software Engineer
+// Mehdi Benkhaled   | Tiaret    | Civil Engineer
+// Roea Kouidri      | Tiaret    | Master Student
+// Yasmine Messaoudi | Tiaret    | Student
+// Youcef Cherif     | Oran      | Software Engineer
+// ... (total ~8 friends)
+
+// --------------------------------------------
+
+// Query: Who RAHIL follow
+
+MATCH (rahil:Person {name: 'Rahil Madoune'})-[:FOLLOWS]->(following)
+RETURN following.name, following.profession
+ORDER BY following.name;
+
+// Expected Output (sample):
+// following.name     | profession
+// Adel Bouazza      | University Professor
+// Amina Belkacem    | Data Scientist
+// Amine Bouzid      | Software Engineer
+// Karim Boudiaf     | Software Engineer
+// Lina Hamidi       | Product Manager
+// ... (total ~10 follows)
+
+// --------------------------------------------
+
+// Query: Who follows RAHIL
+
+MATCH (follower)-[:FOLLOWS]->(rahil:Person {name: 'Rahil Madoune'})
+RETURN follower.name, follower.profession
+ORDER BY follower.name;
+
+// Expected Output (sample):
+// follower.name      | profession
+// Amina Belkacem    | Data Scientist
+// Fatima Meziane    | Master Student
+// Karim Boudiaf     | Software Engineer
+// Mehdi Benkhaled   | Civil Engineer
+// ... (total ~7 followers)
+
+
+// 3. SHORTEST PATH EXAMPLES
+
+
+// Query: Path from RAHIL to Amina Belkacem
+
+MATCH path = shortestPath(
+  (p1:Person {name: 'Rahil Madoune'})-[:FRIEND_OF*]-(p2:Person {name: 'Amina Belkacem'})
+)
+RETURN [n in nodes(path) | n.name] as path_names, length(path) as hops;
+
+// Expected Output:
+// path_names                              | hops
+// ["Rahil Madoune", "Amina Belkacem"]    | 1
+// (Direct connection - 1 hop only!)
+
+// --------------------------------------------
+
+// Query: Path from Tiaret to Adrar
+
+MATCH path = shortestPath(
+  (p1:Person {name: 'Rahil Madoune'})-[:FRIEND_OF*]-(p2:Person {name: 'Brahim Ait-Ali'})
+)
+RETURN [n in nodes(path) | n.name] as path_names, length(path) as hops;
+
+// Expected Output:
+// path_names | hops
+// ["Rahil Madoune", "Roea Kouidri", "Soraya Taibi", 
+//  "Nesrine Taleb", "Malika Saadi", "Brahim Ait-Ali"] | 5
+// (Cross-country path through teacher network)
+
+// --------------------------------------------
+
+// Query: Average degrees of separation
+
+MATCH (p1:Person), (p2:Person)
+WHERE id(p1) < id(p2)
+MATCH path = shortestPath((p1)-[:FRIEND_OF*..10]-(p2))
+WITH length(path) as distance
+RETURN 
+    avg(distance) as average_separation,
+    min(distance) as min_separation,
+    max(distance) as max_separation;
+
+// Expected Output:
+// average_separation | min_separation | max_separation
+// 3.4                | 1              | 6
+
+
+// 4. MOST CONNECTED PEOPLE
+
+
+// Query: Top 10 by friend count
+
+MATCH (p:Person)-[:FRIEND_OF]-(friend)
+WITH p, count(friend) as connections
+ORDER BY connections DESC
+LIMIT 10
+RETURN 
+    p.name as name,
+    p.profession,
+    p.city,
+    connections;
+
+// Expected Output (sample):
+// name              | profession         | city        | connections
+// Rahil Madoune    | Software Engineer  | Tiaret      | 8
+// Amina Belkacem   | Data Scientist     | Alger       | 7
+// Karim Benali     | Lawyer             | Oran        | 7
+// Omar Bensalem    | Software Engineer  | Alger       | 6
+// Youcef Cherif    | Software Engineer  | Oran        | 6
+// Roea Kouidri     | Master Student     | Tiaret      | 6
+// Karim Boudiaf    | Software Engineer  | Alger       | 6
+// ...
+
+
+// 5. INFLUENCER ANALYSIS
+
+
+// Query: Most followed people
+MATCH (p:Person)<-[:FOLLOWS]-(follower)
+WITH p, count(follower) as followers
+WHERE followers > 5
+RETURN 
+    p.name,
+    p.profession,
+    followers
+ORDER BY followers DESC;
+
+// Expected Output:
+// name              | profession              | followers
+// Amina Belkacem   | Data Scientist          | 15
+// Sofiane Mebarki  | Business Consultant     | 11
+// Adel Bouazza     | University Professor    | 10
+
+// --------------------------------------------
+
+// Query: Follow-back rate
+
+MATCH ()-[f:FOLLOWS]->()
+WITH count(f) as total_follows
+MATCH (p1:Person)-[:FOLLOWS]->(p2:Person)-[:FOLLOWS]->(p1)
+WITH total_follows, count(*) as mutual_follows
+RETURN 
+    total_follows,
+    mutual_follows,
+    round(mutual_follows * 100.0 / total_follows, 2) as mutual_percentage;
+
+// Expected Output:
+// total_follows | mutual_follows | mutual_percentage
+// 270          | 65             | 24.07
+
+
+// 6. GEOGRAPHIC CLUSTERING
+
+
+// Query: Same-city friendships
+
+MATCH (p1:Person)-[:FRIEND_OF]-(p2:Person)
+WHERE p1.city = p2.city
+WITH p1.city as city, count(*)/2 as same_city_friendships
+ORDER BY same_city_friendships DESC
+RETURN city, same_city_friendships;
+
+// Expected Output:
+// city         | same_city_friendships
+// Alger        | 28
+// Tiaret       | 10
+// Oran         | 9
+// Constantine  | 6
+// Tlemcen      | 4
+// ...
+
+// --------------------------------------------
+
+// Query: Cross-city connections
+
+MATCH (p1:Person)-[:FRIEND_OF]-(p2:Person)
+WHERE p1.city <> p2.city AND p1.city < p2.city
+WITH p1.city as city1, p2.city as city2, count(*) as connections
+ORDER BY connections DESC
+RETURN city1, city2, connections
+LIMIT 10;
+
+// Expected Output (sample):
+// city1        | city2        | connections
+// Alger        | Tiaret       | 8
+// Alger        | Oran         | 6
+// Oran         | Tiaret       | 4
+// Constantine  | Alger        | 3
+// ...
+
+
+// 7. PROFESSIONAL NETWORKS
+
+
+// Query: Same-profession connections
+MATCH (p1:Person)-[:FRIEND_OF]-(p2:Person)
+WHERE p1.profession = p2.profession
+WITH p1.profession as profession, count(*)/2 as connections
+ORDER BY connections DESC
+RETURN profession, connections;
+
+// Expected Output:
+// profession          | connections
+// Software Engineer   | 6
+// Teacher             | 4
+// Student             | 3
+// Master Student      | 2
+// ...
+
+// --------------------------------------------
+
+// Query: Software engineers network
+
+MATCH (p:Person)-[:FRIEND_OF]-(colleague)
+WHERE p.profession = 'Software Engineer'
+RETURN 
+    p.name,
+    p.city,
+    count(colleague) as total_connections
+ORDER BY total_connections DESC;
+
+// Expected Output:
+// name              | city    | total_connections
+// Rahil Madoune    | Tiaret  | 8
+// Karim Boudiaf    | Alger   | 6
+// Omar Bensalem    | Alger   | 6
+// Youcef Cherif    | Oran    | 6
+// Amine Bouzid     | Annaba  | 4
+
+
+// 8. MUTUAL FRIENDS
+
+
+// Query: Mutual friends between RAHIL and Roea
+
+MATCH (p1:Person {name: 'Rahil Madoune'})-[:FRIEND_OF]-(mutual)-[:FRIEND_OF]-(p2:Person {name: 'Roea Kouidri'})
+RETURN mutual.name, mutual.profession, mutual.city;
+
+// Expected Output:
+// mutual.name        | profession      | city
+// Yasmine Messaoudi | Student         | Tiaret
+// Soraya Taibi      | Teacher         | Tiaret
+// Mehdi Benkhaled   | Civil Engineer  | Tiaret
+
+// --------------------------------------------
+
+// Query: Friend recommendations for Rahil
+
+MATCH (rahil:Person {name: 'Rahil Madoune'})-[:FRIEND_OF]-(friend)-[:FRIEND_OF]-(potential)
+WHERE rahil <> potential 
+  AND NOT (rahil)-[:FRIEND_OF]-(potential)
+WITH potential, count(DISTINCT friend) as mutual_friends
+ORDER BY mutual_friends DESC
+RETURN 
+    potential.name,
+    potential.profession,
+    potential.city,
+    mutual_friends
+LIMIT 5;
+
+// Expected Output (sample):
+// potential.name    | profession       | city  | mutual_friends
+// Lina Hamidi      | Product Manager  | Alger | 3
+// Fatima Meziane   | Master Student   | Alger | 2
+// ...
+
+
+// 9. TRIANGLE DETECTION
+
+// Query: Find friend triangles
+
+MATCH (p1:Person)-[:FRIEND_OF]-(p2:Person)-[:FRIEND_OF]-(p3:Person)-[:FRIEND_OF]-(p1)
+WHERE id(p1) < id(p2) AND id(p2) < id(p3)
+RETURN 
+    p1.name as person1,
+    p2.name as person2,
+    p3.name as person3
+LIMIT 10;
+
+// Expected Output (sample):
+// person1           | person2          | person3
+// Rahil Madoune    | Roea Kouidri     | Yasmine Messaoudi
+// Amina Belkacem   | Karim Boudiaf    | Omar Bensalem
+// Karim Boudiaf    | Omar Bensalem    | Lina Hamidi
+// ...
+
+// --------------------------------------------
+
+// Query: People with most triangles
+
+MATCH (p:Person)-[:FRIEND_OF]-(f1)-[:FRIEND_OF]-(f2)-[:FRIEND_OF]-(p)
+WHERE id(f1) < id(f2)
+WITH p, count(*) as triangle_count
+ORDER BY triangle_count DESC
+RETURN 
+    p.name,
+    p.city,
+    triangle_count
+LIMIT 10;
+
+// Expected Output (sample):
+// name              | city    | triangle_count
+// Amina Belkacem   | Alger   | 12
+// Karim Boudiaf    | Alger   | 10
+// Rahil Madoune    | Tiaret  | 8
+// ...
+
+
+// 10. AGE ANALYSIS
+
+
+// Query: Age distribution
+
+MATCH (p:Person)
+WITH 
+    CASE 
+        WHEN p.age < 25 THEN '18-24'
+        WHEN p.age < 35 THEN '25-34'
+        WHEN p.age < 45 THEN '35-44'
+        WHEN p.age < 55 THEN '45-54'
+        ELSE '55+'
+    END as age_group
+RETURN age_group, count(*) as count
+ORDER BY age_group;
+
+// Expected Output:
+// age_group | count
+// 18-24     | 10
+// 25-34     | 28
+// 35-44     | 9
+// 45-54     | 2
+// 55+       | 1
+
+// --------------------------------------------
+
+// Query: Average age by profession
+
+MATCH (p:Person)
+WITH p.profession as profession, avg(p.age) as avg_age, count(*) as count
+WHERE count > 1
+RETURN profession, round(avg_age, 1) as average_age, count
+ORDER BY average_age DESC;
+
+// Expected Output (sample):
+// profession          | average_age | count
+// Lawyer              | 36.0        | 3
+// Entrepreneur        | 52.0        | 1
+// Business Consultant | 38.0        | 1
+// Doctor              | 33.7        | 3
+// Software Engineer   | 28.4        | 5
+// Student             | 21.3        | 4
+// ...
+
+
+// 11. NETWORK STATISTICS
+
+
+// Query: Overall network metrics
+MATCH (p:Person)
+WITH count(p) as total_people
+MATCH ()-[f:FRIEND_OF]->()
+WITH total_people, count(f)/2 as friendships
+MATCH ()-[fo:FOLLOWS]->()
+WITH total_people, friendships, count(fo) as follows
+MATCH (p:Person)-[:FRIEND_OF]-(friend)
+WITH total_people, friendships, follows, avg(count(friend)) as avg_connections
+RETURN 
+    total_people,
+    friendships,
+    follows,
+    round(avg_connections, 2) as avg_friends_per_person,
+    round((friendships * 2.0) / (total_people * (total_people - 1)), 4) as network_density;
+
+// Expected Output:
+// total_people | friendships | follows | avg_friends_per_person | network_density
+// 50           | 75          | 270     | 6.2                   | 0.0612
+
+
+// 12. PROFESSION DISTRIBUTION
+
+
+// Query: Count by profession
+
+MATCH (p:Person)
+RETURN 
+    p.profession as profession,
+    count(*) as count
+ORDER BY count DESC;
+
+// Expected Output:
+// profession              | count
+// Software Engineer       | 5
+// Teacher                 | 4
+// Student                 | 4
+// Master Student          | 3
+// Lawyer                  | 3
+// Doctor                  | 3
+// Data Scientist          | 1
+// Product Manager         | 1
+// Civil Engineer          | 2
+// ... (12+ professions)
+
+
+// END OF SAMPLE QUERIES
